@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- 蓝色背景 -->
+    <path
+        android:fillColor="#1E88E5"
+        android:pathData="M0,0 h108 v108 h-108 z" />
+
+    <!-- 白色：三个定位角 + 数据点 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M12,12 h24 v24 h-24 z
+                          M72,12 h24 v24 h-24 z
+                          M12,72 h24 v24 h-24 z
+                          M40,40 h4 v4 h-4 z
+                          M48,40 h4 v4 h-4 z
+                          M56,40 h4 v4 h-4 z
+                          M64,40 h4 v4 h-4 z
+                          M40,48 h4 v4 h-4 z
+                          M56,48 h4 v4 h-4 z
+                          M40,56 h4 v4 h-4 z
+                          M48,56 h4 v4 h-4 z
+                          M64,56 h4 v4 h-4 z
+                          M40,64 h4 v4 h-4 z
+                          M48,64 h4 v4 h-4 z
+                          M56,64 h4 v4 h-4 z
+                          M64,64 h4 v4 h-4 z
+                          M72,40 h4 v4 h-4 z
+                          M72,48 h4 v4 h-4 z
+                          M72,56 h4 v4 h-4 z
+                          M72,64 h4 v4 h-4 z
+                          M48,72 h4 v4 h-4 z
+                          M56,72 h4 v4 h-4 z
+                          M64,72 h4 v4 h-4 z
+                          M48,80 h4 v4 h-4 z
+                          M56,80 h4 v4 h-4 z
+                          M64,80 h4 v4 h-4 z" />
+
+    <!-- 蓝色：定位角内圈 -->
+    <path
+        android:fillColor="#1E88E5"
+        android:pathData="M17,17 h14 v14 h-14 z
+                          M77,17 h14 v14 h-14 z
+                          M17,77 h14 v14 h-14 z" />
+
+    <!-- 白色：定位角中心点 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M21,21 h6 v6 h-6 z
+                          M81,21 h6 v6 h-6 z
+                          M21,81 h6 v6 h-6 z" />
+</vector>

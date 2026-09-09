@@ -1,0 +1,44 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.example.qrcodepicclean'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId "com.example.qrcodepicclean"
+        minSdk 21
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.7.0'
+    implementation 'androidx.core:core:1.13.1'
+    // ZXing 核心库，用于识别二维码
+    implementation 'com.google.zxing:core:3.5.3'
+}
+
+// 对齐 Kotlin stdlib 版本，避免 kotlin-stdlib-jdk7/jdk8 新旧版本重复类冲突
+configurations.all {
+    resolutionStrategy.eachDependency { details ->
+        if (details.requested.group == 'org.jetbrains.kotlin') {
+            details.useVersion '1.8.22'
+        }
+    }
+}

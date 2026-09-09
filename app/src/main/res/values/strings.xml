@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">二维码相册清理</string>
+    <string name="title">二维码相册清理</string>
+    <string name="subtitle">扫描手机相册，自动识别并删除\n所有包含二维码的图片</string>
+    <string name="btn_clean">开始清理</string>
+    <string name="scanning">正在扫描相册…</string>
+    <string name="scanning_progress">正在扫描相册… %1$d / %2$d</string>
+    <string name="found_qr">发现 %1$d 张二维码图片，准备删除</string>
+    <string name="no_qr_found">未发现二维码图片</string>
+    <string name="cleaned">已清理 %1$d 张二维码图片</string>
+    <string name="delete_confirmed">删除完成</string>
+    <string name="delete_cancelled">已取消删除</string>
+    <string name="permission_denied">需要相册权限才能扫描图片</string>
+    <string name="permission_needed_title">需要相册权限</string>
+    <string name="permission_needed_msg">需要相册访问权限才能扫描二维码图片。\n请在系统设置中开启权限后重试。</string>
+    <string name="go_settings">去设置</string>
+    <string name="cancel">取消</string>
+</resources>
