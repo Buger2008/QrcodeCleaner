@@ -2,6 +2,20 @@ plugins {
     id 'com.android.application'
 }
 
+// ---------------- 版本号自动递增 ----------------
+// 版本格式：1.0.{构建号}，构建号存在项目根目录 version.properties，
+// 每次打包（assembleDebug / assembleRelease）成功后自动 +1，
+// 本次构建用当前号，下次构建自动 +1 → 版本变成 1.0.{构建号+1}
+def versionPropsFile = rootProject.file('version.properties')
+def versionProps = new Properties()
+if (versionPropsFile.exists()) {
+    versionPropsFile.withInputStream { versionProps.load(it) }
+} else {
+    versionProps.setProperty('BUILD_NUMBER', '2')
+    versionPropsFile.withOutputStream { versionProps.store(it, 'auto-increment build number') }
+}
+def buildNumber = versionProps.getProperty('BUILD_NUMBER', '2').toInteger()
+
 android {
     namespace 'com.example.qrcodepicclean'
     compileSdk 35
@@ -10,8 +24,8 @@ android {
         applicationId "com.example.qrcodepicclean"
         minSdk 21
         targetSdk 34
-        versionCode 1
-        versionName "1.0"
+        versionCode buildNumber
+        versionName "1.0.${buildNumber}"
     }
 
     signingConfigs {
@@ -50,5 +64,16 @@ configurations.all {
         if (details.requested.group == 'org.jetbrains.kotlin') {
             details.useVersion '1.8.22'
         }
+    }
+}
+
+// 打包成功后构建号 +1，下次构建版本自动变成 1.0.{构建号+1}
+tasks.matching { it.name == 'assembleDebug' || it.name == 'assembleRelease' }.configureEach {
+    doLast {
+        def current = versionProps.getProperty('BUILD_NUMBER', '2').toInteger()
+        def next = current + 1
+        versionProps.setProperty('BUILD_NUMBER', String.valueOf(next))
+        versionPropsFile.withOutputStream { versionProps.store(it, 'auto-increment build number') }
+        logger.lifecycle(">> build number incremented to ${next}")
     }
 }

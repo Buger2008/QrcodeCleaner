@@ -6,6 +6,7 @@ import android.app.PendingIntent;
 import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
@@ -13,6 +14,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.provider.Settings;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ProgressBar;
@@ -102,6 +105,42 @@ public class MainActivity extends AppCompatActivity {
         });
 
         updateScopeLabel();
+    }
+
+    // ---------------- 菜单与关于 ----------------
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu_main, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
+        if (item.getItemId() == R.id.menu_about) {
+            showAboutDialog();
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    /** 弹出"关于"对话框，展示软件版本等信息。 */
+    private void showAboutDialog() {
+        new AlertDialog.Builder(this)
+                .setTitle(R.string.about_title)
+                .setMessage(getString(R.string.about_message, getVersionName()))
+                .setPositiveButton(R.string.ok, null)
+                .show();
+    }
+
+    /** 从 PackageManager 读取当前应用版本号。 */
+    private String getVersionName() {
+        try {
+            PackageInfo info = getPackageManager().getPackageInfo(getPackageName(), 0);
+            return info.versionName;
+        } catch (PackageManager.NameNotFoundException e) {
+            return "unknown";
+        }
     }
 
     // ---------------- 权限处理 ----------------

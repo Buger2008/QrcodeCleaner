@@ -11,6 +11,9 @@
     <string name="album_item">%1$s（%2$d 张）</string>
     <string name="album_dialog_empty">未发现相册</string>
     <string name="ok">确定</string>
+    <string name="menu_about">关于</string>
+    <string name="about_title">关于</string>
+    <string name="about_message">版本：%1$s\n\n自动识别并清理相册中包含二维码的图片</string>
     <string name="scanning">正在扫描相册…</string>
     <string name="scanning_progress">正在扫描相册… %1$d / %2$d</string>
     <string name="found_qr">发现 %1$d 张二维码图片，准备删除</string>
