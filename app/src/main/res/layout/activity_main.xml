@@ -24,6 +24,22 @@
         android:textSize="15sp" />
 
     <Button
+        android:id="@+id/btn_pick_albums"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/btn_pick_albums"
+        android:textSize="18sp" />
+
+    <TextView
+        android:id="@+id/tv_scope"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="32dp"
+        android:gravity="center"
+        android:textSize="13sp" />
+
+    <Button
         android:id="@+id/btn_clean"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

@@ -4,6 +4,13 @@
     <string name="title">二维码相册清理</string>
     <string name="subtitle">扫描手机相册，自动识别并删除\n所有包含二维码的图片</string>
     <string name="btn_clean">开始清理</string>
+    <string name="btn_pick_albums">选择要清理的相册</string>
+    <string name="scope_all">扫描范围：全部相册</string>
+    <string name="scope_selected">扫描范围：已选 %1$d 个相册</string>
+    <string name="album_dialog_title">选择相册</string>
+    <string name="album_item">%1$s（%2$d 张）</string>
+    <string name="album_dialog_empty">未发现相册</string>
+    <string name="ok">确定</string>
     <string name="scanning">正在扫描相册…</string>
     <string name="scanning_progress">正在扫描相册… %1$d / %2$d</string>
     <string name="found_qr">发现 %1$d 张二维码图片，准备删除</string>
