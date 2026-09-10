@@ -12,11 +12,10 @@
         android:textSize="16sp"
         android:textStyle="bold" />
 
-    <!-- 相册列表占屏幕高度一半，超出可滚动 -->
+    <!-- 相册列表约 1/4 屏高，超出可滚动 -->
     <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
+        android:layout_height="160dp"
         android:layout_marginTop="8dp">
 
         <LinearLayout
