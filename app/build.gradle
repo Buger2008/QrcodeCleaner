@@ -4,8 +4,8 @@ plugins {
 
 // ---------------- 版本号（手动指定） ----------------
 // 规则：版本号由开发者手动维护，需要发版时改这里即可，不做任何自动递增
-def appVersionCode = 2
-def appVersionName = "1.0.2"
+def appVersionCode = 3
+def appVersionName = "1.0.3"
 
 android {
     namespace 'com.example.qrcodepicclean'
@@ -45,7 +45,9 @@ android {
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.7.0'
     implementation 'androidx.core:core:1.13.1'
-    // ZXing 核心库，用于识别二维码
+    // ML Kit 条码识别（内嵌模型，不依赖 Play Services），GPU/NNAPI 加速
+    implementation 'com.google.mlkit:barcode-scanning:17.3.0'
+    // ZXing 核心库，作为 ML Kit 识别失败时的兜底
     implementation 'com.google.zxing:core:3.5.3'
 }
 

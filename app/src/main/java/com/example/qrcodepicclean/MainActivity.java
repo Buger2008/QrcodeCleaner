@@ -637,5 +637,6 @@ public class MainActivity extends AppCompatActivity {
         super.onDestroy();
         executor.shutdownNow();
         scanPool.shutdownNow();
+        QRCodeScanner.shutdown();
     }
 }
