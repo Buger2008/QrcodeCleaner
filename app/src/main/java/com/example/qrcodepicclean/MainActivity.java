@@ -17,8 +17,11 @@ import android.provider.Settings;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.ArrayAdapter;
 import android.widget.Button;
+import android.widget.CheckBox;
 import android.widget.ProgressBar;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -52,6 +55,15 @@ public class MainActivity extends AppCompatActivity {
 
     private static final String PREFS_NAME = "scan_settings";
     private static final String KEY_SELECTED_BUCKETS = "selected_bucket_ids";
+    private static final String KEY_RESOLUTION_FILTER = "resolution_filter";
+
+    /** 分辨率预设档位。 */
+    private static final int RES_NO_LIMIT = 0;
+    private static final int RES_LE_480 = 1;
+    private static final int RES_480_720 = 2;
+    private static final int RES_720_1080 = 3;
+    private static final int RES_GE_1080 = 4;
+    private static final int RES_COUNT = 5;
 
     /** 本次权限请求是否由"选择相册"按钮触发（授权后回到相册选择而非直接清理）。 */
     private boolean pendingAlbumPick = false;
@@ -230,7 +242,7 @@ public class MainActivity extends AppCompatActivity {
         startActivity(intent);
     }
 
-    // ---------------- 相册选择 ----------------
+    // ---------------- 筛选设置（相册 + 分辨率） ----------------
 
     /** 当前选中的相册 bucket id 集合；空集合表示全部相册。 */
     private Set<String> getSelectedBuckets() {
@@ -244,7 +256,30 @@ public class MainActivity extends AppCompatActivity {
                 .edit()
                 .putStringSet(KEY_SELECTED_BUCKETS, bucketIds)
                 .apply();
-        updateScopeLabel();
+    }
+
+    /** 当前分辨率筛选档位（0=不限制）。 */
+    private int getResolutionFilter() {
+        return getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .getInt(KEY_RESOLUTION_FILTER, RES_NO_LIMIT);
+    }
+
+    private void saveResolutionFilter(int filter) {
+        getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
+                .edit()
+                .putInt(KEY_RESOLUTION_FILTER, filter)
+                .apply();
+    }
+
+    /** 返回分辨率档位的显示名称。 */
+    private String getResolutionLabel(int filter) {
+        switch (filter) {
+            case RES_LE_480:    return getString(R.string.res_le_480);
+            case RES_480_720:   return getString(R.string.res_480_720);
+            case RES_720_1080:  return getString(R.string.res_720_1080);
+            case RES_GE_1080:   return getString(R.string.res_ge_1080);
+            default:            return getString(R.string.res_no_limit);
+        }
     }
 
     /** 用 MediaStore 的相册分组查询列出所有相册（不扫盘）。返回按名称排序的 {bucketId, 名称, 图片数} 列表。 */
@@ -287,7 +322,7 @@ public class MainActivity extends AppCompatActivity {
         return albums;
     }
 
-    /** 后台加载相册列表，完成后弹出多选对话框。 */
+    /** 后台加载相册列表，完成后弹出筛选对话框。 */
     private void showAlbumPicker() {
         if (!hasPermission()) {
             pendingAlbumPick = true;
@@ -302,36 +337,58 @@ public class MainActivity extends AppCompatActivity {
                 if (isFinishing()) {
                     return;
                 }
-                showAlbumPickerDialog(albums);
+                showFilterDialog(albums);
             });
         });
     }
 
-    /** 弹出多选对话框选择要清理的相册。 */
-    private void showAlbumPickerDialog(List<String[]> albums) {
+    /** 弹出合并筛选对话框（相册多选 + 分辨率下拉）。 */
+    private void showFilterDialog(List<String[]> albums) {
         if (albums.isEmpty()) {
             Toast.makeText(this, R.string.album_dialog_empty, Toast.LENGTH_SHORT).show();
             return;
         }
 
+        // 自定义布局
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_filter, null);
+        android.widget.LinearLayout albumContainer =
+                dialogView.findViewById(R.id.album_container);
+        Spinner spinnerRes = dialogView.findViewById(R.id.spinner_resolution);
+
+        // --- 相册 checkbox 列表 ---
         final int size = albums.size();
-        final String[] names = new String[size];
         final boolean[] checked = new boolean[size];
         final Set<String> current = getSelectedBuckets();
         for (int i = 0; i < size; i++) {
             String[] album = albums.get(i);
-            names[i] = getString(R.string.album_item, album[1],
-                    Integer.parseInt(album[2]));
-            // 未保存过任何选择时默认全选（空集合=全部）
+            CheckBox cb = new CheckBox(this);
+            cb.setText(getString(R.string.album_item, album[1],
+                    Integer.parseInt(album[2])));
+            final int idx = i;
             checked[i] = current.isEmpty() || current.contains(album[0]);
+            cb.setChecked(checked[i]);
+            cb.setOnCheckedChangeListener((button, isChecked) -> checked[idx] = isChecked);
+            albumContainer.addView(cb);
         }
 
+        // --- 分辨率 Spinner ---
+        String[] resOptions = new String[RES_COUNT];
+        resOptions[RES_NO_LIMIT]   = getString(R.string.res_no_limit);
+        resOptions[RES_LE_480]     = getString(R.string.res_le_480);
+        resOptions[RES_480_720]    = getString(R.string.res_480_720);
+        resOptions[RES_720_1080]   = getString(R.string.res_720_1080);
+        resOptions[RES_GE_1080]    = getString(R.string.res_ge_1080);
+        ArrayAdapter<String> adapter = new ArrayAdapter<>(
+                this, android.R.layout.simple_spinner_item, resOptions);
+        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spinnerRes.setAdapter(adapter);
+        spinnerRes.setSelection(getResolutionFilter());
+
         new AlertDialog.Builder(this)
-                .setTitle(R.string.album_dialog_title)
-                .setMultiChoiceItems(names, checked, (dialog, which, isChecked) -> {
-                    // 状态由系统维护在 checked[] 里
-                })
+                .setTitle(R.string.filter_dialog_title)
+                .setView(dialogView)
                 .setPositiveButton(R.string.ok, (dialog, which) -> {
+                    // 保存相册选择
                     Set<String> selected = new HashSet<>();
                     for (int i = 0; i < size; i++) {
                         if (checked[i]) {
@@ -339,6 +396,9 @@ public class MainActivity extends AppCompatActivity {
                         }
                     }
                     saveSelectedBuckets(selected);
+                    // 保存分辨率选择
+                    saveResolutionFilter(spinnerRes.getSelectedItemPosition());
+                    updateScopeLabel();
                 })
                 .setNegativeButton(R.string.cancel, null)
                 .show();
@@ -347,10 +407,11 @@ public class MainActivity extends AppCompatActivity {
     /** 刷新当前扫描范围提示文字。 */
     private void updateScopeLabel() {
         int count = getSelectedBuckets().size();
+        String resLabel = getResolutionLabel(getResolutionFilter());
         if (count == 0) {
-            tvScope.setText(R.string.scope_all);
+            tvScope.setText(getString(R.string.scope_all));
         } else {
-            tvScope.setText(getString(R.string.scope_selected, count));
+            tvScope.setText(getString(R.string.scope_selected, count, resLabel));
         }
     }
 
@@ -381,29 +442,66 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    /** 后台并行扫描所选相册，返回所有识别出二维码的图片 Uri。 */
+    /** 后台并行扫描所选相册+分辨率范围，返回所有识别出二维码的图片 Uri。 */
     private List<Uri> scanAndCollect() {
         ContentResolver cr = getContentResolver();
         String[] projection = {MediaStore.Images.Media._ID};
 
-        // 按用户选择的相册构造查询条件；空集合 = 全部相册
+        // 组合查询条件：相册 + 分辨率
+        List<String> conditions = new ArrayList<>();
+        List<String> args = new ArrayList<>();
+
+        // 相册筛选
         Set<String> bucketIds = getSelectedBuckets();
-        String selection = null;
-        String[] selectionArgs = null;
         if (!bucketIds.isEmpty()) {
             StringBuilder sb = new StringBuilder(
                     MediaStore.Images.Media.BUCKET_ID + " IN (");
-            List<String> args = new ArrayList<>();
+            boolean first = true;
             for (String id : bucketIds) {
-                if (args.size() > 0) {
+                if (!first) {
                     sb.append(',');
                 }
                 sb.append('?');
                 args.add(id);
+                first = false;
             }
             sb.append(')');
+            conditions.add(sb.toString());
+        }
+
+        // 分辨率筛选（基于 WIDTH 列）
+        int resFilter = getResolutionFilter();
+        if (resFilter != RES_NO_LIMIT) {
+            switch (resFilter) {
+                case RES_LE_480:
+                    conditions.add(MediaStore.Images.Media.WIDTH + " <= 480");
+                    break;
+                case RES_480_720:
+                    conditions.add(MediaStore.Images.Media.WIDTH + " > 480");
+                    conditions.add(MediaStore.Images.Media.WIDTH + " <= 720");
+                    break;
+                case RES_720_1080:
+                    conditions.add(MediaStore.Images.Media.WIDTH + " > 720");
+                    conditions.add(MediaStore.Images.Media.WIDTH + " <= 1080");
+                    break;
+                case RES_GE_1080:
+                    conditions.add(MediaStore.Images.Media.WIDTH + " > 1080");
+                    break;
+            }
+        }
+
+        String selection = null;
+        String[] selectionArgs = null;
+        if (!conditions.isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < conditions.size(); i++) {
+                if (i > 0) {
+                    sb.append(" AND ");
+                }
+                sb.append(conditions.get(i));
+            }
             selection = sb.toString();
-            selectionArgs = args.toArray(new String[0]);
+            selectionArgs = args.isEmpty() ? null : args.toArray(new String[0]);
         }
 
         // 第一步：只查索引，把待扫描的图片 id 全部取出来
