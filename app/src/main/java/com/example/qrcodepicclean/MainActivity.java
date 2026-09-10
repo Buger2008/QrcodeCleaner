@@ -18,10 +18,10 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.ArrayAdapter;
+import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.ProgressBar;
-import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -56,14 +56,6 @@ public class MainActivity extends AppCompatActivity {
     private static final String PREFS_NAME = "scan_settings";
     private static final String KEY_SELECTED_BUCKETS = "selected_bucket_ids";
     private static final String KEY_RESOLUTION_FILTER = "resolution_filter";
-
-    /** 分辨率预设档位。 */
-    private static final int RES_NO_LIMIT = 0;
-    private static final int RES_LE_480 = 1;
-    private static final int RES_480_720 = 2;
-    private static final int RES_720_1080 = 3;
-    private static final int RES_GE_1080 = 4;
-    private static final int RES_COUNT = 5;
 
     /** 本次权限请求是否由"选择相册"按钮触发（授权后回到相册选择而非直接清理）。 */
     private boolean pendingAlbumPick = false;
@@ -258,28 +250,17 @@ public class MainActivity extends AppCompatActivity {
                 .apply();
     }
 
-    /** 当前分辨率筛选档位（0=不限制）。 */
-    private int getResolutionFilter() {
+    /** 当前分辨率筛选表达式（空字符串=不限制）。 */
+    private String getResolutionFilter() {
         return getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
-                .getInt(KEY_RESOLUTION_FILTER, RES_NO_LIMIT);
+                .getString(KEY_RESOLUTION_FILTER, "");
     }
 
-    private void saveResolutionFilter(int filter) {
+    private void saveResolutionFilter(String filter) {
         getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
                 .edit()
-                .putInt(KEY_RESOLUTION_FILTER, filter)
+                .putString(KEY_RESOLUTION_FILTER, filter)
                 .apply();
-    }
-
-    /** 返回分辨率档位的显示名称。 */
-    private String getResolutionLabel(int filter) {
-        switch (filter) {
-            case RES_LE_480:    return getString(R.string.res_le_480);
-            case RES_480_720:   return getString(R.string.res_480_720);
-            case RES_720_1080:  return getString(R.string.res_720_1080);
-            case RES_GE_1080:   return getString(R.string.res_ge_1080);
-            default:            return getString(R.string.res_no_limit);
-        }
     }
 
     /** 用 MediaStore 的相册分组查询列出所有相册（不扫盘）。返回按名称排序的 {bucketId, 名称, 图片数} 列表。 */
@@ -342,7 +323,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    /** 弹出合并筛选对话框（相册多选 + 分辨率下拉）。 */
+    /** 弹出合并筛选对话框（相册多选 + 分辨率 ComboBox）。 */
     private void showFilterDialog(List<String[]> albums) {
         if (albums.isEmpty()) {
             Toast.makeText(this, R.string.album_dialog_empty, Toast.LENGTH_SHORT).show();
@@ -353,7 +334,7 @@ public class MainActivity extends AppCompatActivity {
         View dialogView = getLayoutInflater().inflate(R.layout.dialog_filter, null);
         android.widget.LinearLayout albumContainer =
                 dialogView.findViewById(R.id.album_container);
-        Spinner spinnerRes = dialogView.findViewById(R.id.spinner_resolution);
+        AutoCompleteTextView actvRes = dialogView.findViewById(R.id.actv_resolution);
 
         // --- 相册 checkbox 列表 ---
         final int size = albums.size();
@@ -371,18 +352,23 @@ public class MainActivity extends AppCompatActivity {
             albumContainer.addView(cb);
         }
 
-        // --- 分辨率 Spinner ---
-        String[] resOptions = new String[RES_COUNT];
-        resOptions[RES_NO_LIMIT]   = getString(R.string.res_no_limit);
-        resOptions[RES_LE_480]     = getString(R.string.res_le_480);
-        resOptions[RES_480_720]    = getString(R.string.res_480_720);
-        resOptions[RES_720_1080]   = getString(R.string.res_720_1080);
-        resOptions[RES_GE_1080]    = getString(R.string.res_ge_1080);
-        ArrayAdapter<String> adapter = new ArrayAdapter<>(
-                this, android.R.layout.simple_spinner_item, resOptions);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spinnerRes.setAdapter(adapter);
-        spinnerRes.setSelection(getResolutionFilter());
+        // --- 分辨率 AutoCompleteTextView（可选可输入） ---
+        String[] resPresets = {
+                getString(R.string.res_no_limit),
+                getString(R.string.res_le_480),
+                getString(R.string.res_480_720),
+                getString(R.string.res_720_1080),
+                getString(R.string.res_ge_1080),
+        };
+        ArrayAdapter<String> resAdapter = new ArrayAdapter<>(
+                this, android.R.layout.simple_dropdown_item_1line, resPresets);
+        actvRes.setAdapter(resAdapter);
+        actvRes.setThreshold(0);
+        // 恢复上次的筛选值
+        String savedRes = getResolutionFilter();
+        if (!savedRes.isEmpty()) {
+            actvRes.setText(savedRes);
+        }
 
         new AlertDialog.Builder(this)
                 .setTitle(R.string.filter_dialog_title)
@@ -396,8 +382,8 @@ public class MainActivity extends AppCompatActivity {
                         }
                     }
                     saveSelectedBuckets(selected);
-                    // 保存分辨率选择
-                    saveResolutionFilter(spinnerRes.getSelectedItemPosition());
+                    // 保存分辨率选择（原样存储用户输入/选择的文本）
+                    saveResolutionFilter(actvRes.getText().toString().trim());
                     updateScopeLabel();
                 })
                 .setNegativeButton(R.string.cancel, null)
@@ -407,7 +393,9 @@ public class MainActivity extends AppCompatActivity {
     /** 刷新当前扫描范围提示文字。 */
     private void updateScopeLabel() {
         int count = getSelectedBuckets().size();
-        String resLabel = getResolutionLabel(getResolutionFilter());
+        String resText = getResolutionFilter();
+        String resLabel = resText.isEmpty()
+                ? getString(R.string.res_no_limit) : resText;
         if (count == 0) {
             tvScope.setText(getString(R.string.scope_all));
         } else {
@@ -469,24 +457,37 @@ public class MainActivity extends AppCompatActivity {
             conditions.add(sb.toString());
         }
 
-        // 分辨率筛选（基于 WIDTH 列）
-        int resFilter = getResolutionFilter();
-        if (resFilter != RES_NO_LIMIT) {
-            switch (resFilter) {
-                case RES_LE_480:
-                    conditions.add(MediaStore.Images.Media.WIDTH + " <= 480");
-                    break;
-                case RES_480_720:
-                    conditions.add(MediaStore.Images.Media.WIDTH + " > 480");
-                    conditions.add(MediaStore.Images.Media.WIDTH + " <= 720");
-                    break;
-                case RES_720_1080:
-                    conditions.add(MediaStore.Images.Media.WIDTH + " > 720");
-                    conditions.add(MediaStore.Images.Media.WIDTH + " <= 1080");
-                    break;
-                case RES_GE_1080:
-                    conditions.add(MediaStore.Images.Media.WIDTH + " > 1080");
-                    break;
+        // 分辨率筛选（基于 WIDTH 列），解析用户输入的表达式
+        String resFilter = getResolutionFilter();
+        if (!resFilter.isEmpty()) {
+            String w = MediaStore.Images.Media.WIDTH;
+            // 统一全角→半角
+            String expr = resFilter.replace('≤', '<')
+                                   .replace('≥', '>')
+                                   .replace('~', '-')
+                                   .replace('～', '-');
+            expr = expr.replace("宽度", "").trim();
+
+            if (expr.equals(getString(R.string.res_no_limit))) {
+                // 不限制，不加条件
+            } else if (expr.matches("^<=\\s*\\d+$")) {
+                // 宽度 ≤ 480 → WIDTH <= 480
+                String num = expr.replace("<=", "").trim();
+                conditions.add(w + " <= " + num);
+            } else if (expr.matches("^>=\\s*\\d+$")) {
+                // 宽度 ≥ 1080 → WIDTH > 1080
+                String num = expr.replace(">=", "").trim();
+                conditions.add(w + " > " + num);
+            } else if (expr.matches("^\\d+\\s*-\\s*\\d+$")) {
+                // 宽度 480-720 → WIDTH > 480 AND WIDTH <= 720--720
+                String[] parts = expr.split("-");
+                String lo = parts[0].trim();
+                String hi = parts[1].trim();
+                conditions.add(w + " > " + lo);
+                conditions.add(w + " <= " + hi);
+            } else if (expr.matches("^\\d+$")) {
+                // 纯数字 → 精确匹配
+                conditions.add(w + " = " + expr);
             }
         }
 

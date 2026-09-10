@@ -14,10 +14,12 @@
     <string name="filter_albums_section">相册</string>
     <string name="filter_resolution_section">分辨率</string>
     <string name="res_no_limit">不限制</string>
+    <string name="res_hint">输入宽度值，如 1080、480~720、≤480、≥1080</string>
     <string name="res_le_480">宽度 ≤ 480</string>
     <string name="res_480_720">宽度 480 ~ 720</string>
     <string name="res_720_1080">宽度 720 ~ 1080</string>
     <string name="res_ge_1080">宽度 ≥ 1080</string>
+    <string name="res_exact_format">宽度 = %1$s</string>
     <string name="ok">确定</string>
     <string name="menu_about">关于</string>
     <string name="about_title">关于</string>
