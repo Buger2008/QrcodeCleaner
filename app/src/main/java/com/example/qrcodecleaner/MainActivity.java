@@ -578,19 +578,26 @@ public class MainActivity extends AppCompatActivity {
 
     /** 扫描完成后弹多选确认对话框，让用户选择要删除的图片。 */
     private void showDeleteConfirmDialog(List<ScanResult> results) {
+        // 自定义布局 + CheckBox，兼容性比框架 setMultiChoiceItems 好
+        View dialogView = getLayoutInflater().inflate(R.layout.dialog_delete_confirm, null);
+        android.widget.LinearLayout container =
+                dialogView.findViewById(R.id.delete_container);
+
         final int size = results.size();
-        final String[] names = new String[size];
         final boolean[] checked = new boolean[size];
         for (int i = 0; i < size; i++) {
-            names[i] = results.get(i).name;
+            CheckBox cb = new CheckBox(this);
+            cb.setText(results.get(i).name);
+            final int idx = i;
             checked[i] = true;  // 默认全选
+            cb.setChecked(true);
+            cb.setOnCheckedChangeListener((button, isChecked) -> checked[idx] = isChecked);
+            container.addView(cb);
         }
 
         new AlertDialog.Builder(this)
                 .setTitle(getString(R.string.delete_confirm_title, size))
-                .setMultiChoiceItems(names, checked, (dialog, which, isChecked) -> {
-                    // 状态由系统维护在 checked[] 里
-                })
+                .setView(dialogView)
                 .setPositiveButton(R.string.delete, (dialog, which) -> {
                     List<Uri> toDelete = new ArrayList<>();
                     for (int i = 0; i < size; i++) {

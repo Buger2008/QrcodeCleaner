@@ -30,7 +30,8 @@
     <string name="no_qr_found">未发现二维码图片</string>
     <string name="cleaned">已清理 %1$d 张二维码图片</string>
     <string name="delete">删除</string>
-    <string name="delete_confirm_title">发现 %1$d 张二维码图片，请选择要删除的</string>
+    <string name="delete_confirm_title">发现 %1$d 张二维码图片</string>
+    <string name="delete_confirm_hint">请勾选要删除的图片：</string>
     <string name="delete_confirmed">删除完成</string>
     <string name="delete_cancelled">已取消删除</string>
     <string name="permission_denied">需要相册权限才能扫描图片</string>
