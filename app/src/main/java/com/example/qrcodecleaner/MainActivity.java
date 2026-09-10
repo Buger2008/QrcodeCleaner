@@ -1,4 +1,4 @@
-package com.example.qrcodepicclean;
+package com.example.qrcodecleaner;
 
 import android.Manifest;
 import android.app.AlertDialog;
@@ -45,7 +45,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * 主界面：一个"开始清理"按钮，点击后扫描相册中所有图片，
- * 用 ZXing 尝试识别二维码，识别成功即删除该图片。
+ * 用 ML Kit / ZXing 尝试识别二维码，识别成功即删除该图片。
  * 未授权时先请求权限；被永久拒绝时引导用户跳转系统设置。
  */
 public class MainActivity extends AppCompatActivity {
@@ -405,6 +405,16 @@ public class MainActivity extends AppCompatActivity {
 
     // ---------------- 清理流程 ----------------
 
+    /** 扫描结果项：图片 Uri + 显示名。 */
+    private static class ScanResult {
+        final Uri uri;
+        final String name;
+        ScanResult(Uri uri, String name) {
+            this.uri = uri;
+            this.name = name;
+        }
+    }
+
     private void startCleaning() {
         btnClean.setEnabled(false);
         btnPickAlbums.setEnabled(false);
@@ -414,26 +424,29 @@ public class MainActivity extends AppCompatActivity {
         tvStatus.setText(R.string.scanning);
 
         executor.execute(() -> {
-            List<Uri> qrUris = scanAndCollect();
+            final List<ScanResult> results = scanAndCollect();
             runOnUiThread(() -> {
                 progressBar.setVisibility(View.GONE);
                 btnClean.setEnabled(true);
                 btnPickAlbums.setEnabled(true);
-                if (qrUris.isEmpty()) {
+                if (results.isEmpty()) {
                     tvStatus.setVisibility(View.GONE);
                     tvResult.setText(R.string.no_qr_found);
                 } else {
-                    tvStatus.setText(getString(R.string.found_qr, qrUris.size()));
-                    deleteImages(qrUris);
+                    tvStatus.setText(getString(R.string.found_qr, results.size()));
+                    showDeleteConfirmDialog(results);
                 }
             });
         });
     }
 
-    /** 后台并行扫描所选相册+分辨率范围，返回所有识别出二维码的图片 Uri。 */
-    private List<Uri> scanAndCollect() {
+    /** 后台并行扫描所选相册+分辨率范围，返回所有识别出二维码的图片。 */
+    private List<ScanResult> scanAndCollect() {
         ContentResolver cr = getContentResolver();
-        String[] projection = {MediaStore.Images.Media._ID};
+        String[] projection = {
+                MediaStore.Images.Media._ID,
+                MediaStore.Images.Media.DISPLAY_NAME
+        };
 
         // 组合查询条件：相册 + 分辨率
         List<String> conditions = new ArrayList<>();
@@ -505,16 +518,20 @@ public class MainActivity extends AppCompatActivity {
             selectionArgs = args.isEmpty() ? null : args.toArray(new String[0]);
         }
 
-        // 第一步：只查索引，把待扫描的图片 id 全部取出来
-        final List<Long> ids = new ArrayList<>();
+        // 第一步：只查索引，把待扫描的图片 id + 文件名全部取出来
+        final List<long[]> ids = new ArrayList<>();  // [id] kept as long[] for later pairing
+        final List<String> names = new ArrayList<>();
         try (Cursor cursor = cr.query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                 projection, selection, selectionArgs, null)) {
             if (cursor == null) {
                 return new ArrayList<>();
             }
             int idCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID);
+            int nameCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME);
             while (cursor.moveToNext()) {
-                ids.add(cursor.getLong(idCol));
+                ids.add(new long[]{cursor.getLong(idCol)});
+                String name = cursor.getString(nameCol);
+                names.add(name != null ? name : "");
             }
         } catch (Exception e) {
             return new ArrayList<>();
@@ -522,11 +539,13 @@ public class MainActivity extends AppCompatActivity {
 
         // 第二步：并行识别二维码
         final int total = ids.size();
-        final List<Uri> qrUris = Collections.synchronizedList(new ArrayList<Uri>());
+        final List<ScanResult> qrResults = Collections.synchronizedList(new ArrayList<ScanResult>());
         final AtomicInteger done = new AtomicInteger(0);
         final CountDownLatch latch = new CountDownLatch(total);
 
-        for (long id : ids) {
+        for (int i = 0; i < total; i++) {
+            final long id = ids.get(i)[0];
+            final String name = names.get(i);
             final Uri uri = Uri.withAppendedPath(
                     MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                     String.valueOf(id));
@@ -534,7 +553,7 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     String text = QRCodeScanner.decodeQrFromUri(this, uri);
                     if (text != null) {
-                        qrUris.add(uri);
+                        qrResults.add(new ScanResult(uri, name));
                     }
                 } finally {
                     int current = done.incrementAndGet();
@@ -554,7 +573,43 @@ public class MainActivity extends AppCompatActivity {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
-        return new ArrayList<>(qrUris);
+        return new ArrayList<>(qrResults);
+    }
+
+    /** 扫描完成后弹多选确认对话框，让用户选择要删除的图片。 */
+    private void showDeleteConfirmDialog(List<ScanResult> results) {
+        final int size = results.size();
+        final String[] names = new String[size];
+        final boolean[] checked = new boolean[size];
+        for (int i = 0; i < size; i++) {
+            names[i] = results.get(i).name;
+            checked[i] = true;  // 默认全选
+        }
+
+        new AlertDialog.Builder(this)
+                .setTitle(getString(R.string.delete_confirm_title, size))
+                .setMultiChoiceItems(names, checked, (dialog, which, isChecked) -> {
+                    // 状态由系统维护在 checked[] 里
+                })
+                .setPositiveButton(R.string.delete, (dialog, which) -> {
+                    List<Uri> toDelete = new ArrayList<>();
+                    for (int i = 0; i < size; i++) {
+                        if (checked[i]) {
+                            toDelete.add(results.get(i).uri);
+                        }
+                    }
+                    if (toDelete.isEmpty()) {
+                        tvStatus.setVisibility(View.GONE);
+                        tvResult.setText(R.string.delete_cancelled);
+                    } else {
+                        deleteImages(toDelete);
+                    }
+                })
+                .setNegativeButton(R.string.cancel, (dialog, which) -> {
+                    tvStatus.setVisibility(View.GONE);
+                    tvResult.setText(R.string.delete_cancelled);
+                })
+                .show();
     }
 
     /** 根据系统版本选择删除方式。 */

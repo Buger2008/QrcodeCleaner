@@ -1,4 +1,4 @@
-package com.example.qrcodepicclean;
+package com.example.qrcodecleaner;
 
 import android.content.Context;
 import android.graphics.Bitmap;
