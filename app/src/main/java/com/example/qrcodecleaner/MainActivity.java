@@ -9,6 +9,8 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -21,6 +23,7 @@ import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.ImageView;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -31,6 +34,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 
 import java.io.File;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -405,13 +409,11 @@ public class MainActivity extends AppCompatActivity {
 
     // ---------------- 清理流程 ----------------
 
-    /** 扫描结果项：图片 Uri + 显示名。 */
+    /** 扫描结果项：识别出二维码的图片 Uri。 */
     private static class ScanResult {
         final Uri uri;
-        final String name;
-        ScanResult(Uri uri, String name) {
+        ScanResult(Uri uri) {
             this.uri = uri;
-            this.name = name;
         }
     }
 
@@ -444,8 +446,7 @@ public class MainActivity extends AppCompatActivity {
     private List<ScanResult> scanAndCollect() {
         ContentResolver cr = getContentResolver();
         String[] projection = {
-                MediaStore.Images.Media._ID,
-                MediaStore.Images.Media.DISPLAY_NAME
+                MediaStore.Images.Media._ID
         };
 
         // 组合查询条件：相册 + 分辨率
@@ -518,20 +519,16 @@ public class MainActivity extends AppCompatActivity {
             selectionArgs = args.isEmpty() ? null : args.toArray(new String[0]);
         }
 
-        // 第一步：只查索引，把待扫描的图片 id + 文件名全部取出来
-        final List<long[]> ids = new ArrayList<>();  // [id] kept as long[] for later pairing
-        final List<String> names = new ArrayList<>();
+        // 第一步：只查 id（不取名，省一列查询和一堆字符串内存）
+        final List<Long> ids = new ArrayList<>();
         try (Cursor cursor = cr.query(MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                 projection, selection, selectionArgs, null)) {
             if (cursor == null) {
                 return new ArrayList<>();
             }
             int idCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID);
-            int nameCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME);
             while (cursor.moveToNext()) {
-                ids.add(new long[]{cursor.getLong(idCol)});
-                String name = cursor.getString(nameCol);
-                names.add(name != null ? name : "");
+                ids.add(cursor.getLong(idCol));
             }
         } catch (Exception e) {
             return new ArrayList<>();
@@ -544,8 +541,7 @@ public class MainActivity extends AppCompatActivity {
         final CountDownLatch latch = new CountDownLatch(total);
 
         for (int i = 0; i < total; i++) {
-            final long id = ids.get(i)[0];
-            final String name = names.get(i);
+            final long id = ids.get(i);
             final Uri uri = Uri.withAppendedPath(
                     MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                     String.valueOf(id));
@@ -553,7 +549,7 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     String text = QRCodeScanner.decodeQrFromUri(this, uri);
                     if (text != null) {
-                        qrResults.add(new ScanResult(uri, name));
+                        qrResults.add(new ScanResult(uri));
                     }
                 } finally {
                     int current = done.incrementAndGet();
@@ -576,9 +572,9 @@ public class MainActivity extends AppCompatActivity {
         return new ArrayList<>(qrResults);
     }
 
-    /** 扫描完成后弹多选确认对话框，让用户选择要删除的图片。 */
+    /** 扫描完成后弹多选确认对话框（带缩略图），让用户选择要删除的图片。 */
     private void showDeleteConfirmDialog(List<ScanResult> results) {
-        // 自定义布局 + CheckBox，兼容性比框架 setMultiChoiceItems 好
+        // 自定义布局 + CheckBox + 缩略图
         View dialogView = getLayoutInflater().inflate(R.layout.dialog_delete_confirm, null);
         android.widget.LinearLayout container =
                 dialogView.findViewById(R.id.delete_container);
@@ -586,13 +582,22 @@ public class MainActivity extends AppCompatActivity {
         final int size = results.size();
         final boolean[] checked = new boolean[size];
         for (int i = 0; i < size; i++) {
-            CheckBox cb = new CheckBox(this);
-            cb.setText(results.get(i).name);
+            View item = getLayoutInflater().inflate(
+                    R.layout.dialog_delete_item, container, false);
+            ImageView ivThumb = item.findViewById(R.id.iv_thumb);
+            CheckBox cb = item.findViewById(R.id.cb_delete);
+
             final int idx = i;
-            checked[i] = true;  // 默认全选
+            checked[i] = true;
             cb.setChecked(true);
             cb.setOnCheckedChangeListener((button, isChecked) -> checked[idx] = isChecked);
-            container.addView(cb);
+            // 整行可点：点缩略图也能切换勾选，不用非去点小方框
+            item.setOnClickListener(v -> cb.setChecked(!cb.isChecked()));
+
+            // 后台加载缩略图
+            loadThumbnail(results.get(i).uri, ivThumb);
+
+            container.addView(item);
         }
 
         new AlertDialog.Builder(this)
@@ -617,6 +622,59 @@ public class MainActivity extends AppCompatActivity {
                     tvResult.setText(R.string.delete_cancelled);
                 })
                 .show();
+    }
+
+    /** 后台加载图片缩略图到指定 ImageView。 */
+    private void loadThumbnail(final Uri uri, final ImageView iv) {
+        scanPool.execute(() -> {
+            Bitmap thumb = decodeThumbnail(uri);
+            runOnUiThread(() -> {
+                if (thumb != null) {
+                    iv.setImageBitmap(thumb);
+                }
+            });
+        });
+    }
+
+    /**
+     * 解码缩略图（最长边约 400px）。
+     * inSampleSize 只能取 2 的幂，所以目标值要留足余量，否则大图会被降过头导致发糊。
+     * 用 ARGB_8888 而非 RGB_565，避免照片出现色带。
+     */
+    private Bitmap decodeThumbnail(Uri uri) {
+        final int maxDim = 400;
+        try {
+            BitmapFactory.Options bounds = new BitmapFactory.Options();
+            bounds.inJustDecodeBounds = true;
+            try (InputStream is = getContentResolver().openInputStream(uri)) {
+                if (is == null) {
+                    return null;
+                }
+                BitmapFactory.decodeStream(is, null, bounds);
+            }
+
+            int sample = 1;
+            int w = bounds.outWidth;
+            int h = bounds.outHeight;
+            if (w <= 0 || h <= 0) {
+                return null;
+            }
+            while (w / sample > maxDim || h / sample > maxDim) {
+                sample *= 2;
+            }
+
+            BitmapFactory.Options opts = new BitmapFactory.Options();
+            opts.inSampleSize = sample;
+            opts.inPreferredConfig = Bitmap.Config.ARGB_8888;
+            try (InputStream is = getContentResolver().openInputStream(uri)) {
+                if (is == null) {
+                    return null;
+                }
+                return BitmapFactory.decodeStream(is, null, opts);
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
     }
 
     /** 根据系统版本选择删除方式。 */
