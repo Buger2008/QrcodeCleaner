@@ -46,5 +46,9 @@ Thumbs.db
 .externalNativeBuild/
 .cxx/
 captures/
+
+# 签名文件（公开仓库，绝不入库）
 *.jks
-*.jks
+
+# AI 助手工作记忆（含签名口令等本机信息，不入库）
+.workbuddy/
