@@ -1,4 +1,4 @@
-# QRCodePicClean 二维码相册清理
+# QrcodeCleaner 二维码相册清理
 
 扫描手机相册，自动识别并删除所有包含二维码的图片。
 
@@ -6,7 +6,7 @@
 
 - **相册选择**：支持多选要清理的相册文件夹（通过 MediaStore 图库 API 获取，不扫盘），不选则默认全部相册
 - **多线程扫描**：并行识别二维码，充分利用多核 CPU，相册图片多也不会卡
-- **二维码识别**：基于 ZXing 核心库，按比例缩放大图后解码，控制内存占用
+- **二维码识别**：ML Kit Barcode（首选，神经网络检测）+ ZXing 兜底
 - **安全删除**：Android 11+ 走系统确认删除对话框；Android 10 及以下走 ContentResolver 直接删除
 - **权限适配**：Android 13+ 读取媒体权限、Android 10~12 读写外部存储、Android 9 及以下兼容处理
 - **低版本兼容**：minSdk 21，代码避开 API 24+ 默认方法，兼顾老设备
@@ -23,7 +23,7 @@
 | 最低 SDK | 21（Android 5.0） |
 | 目标 SDK | 34（Android 14） |
 | 编译 SDK | 35 |
-| 二维码识别 | ZXing core 3.5.3 |
+| 二维码识别 | ML Kit Barcode 17.3.0 + ZXing core 3.5.3 |
 | UI | AndroidX AppCompat |
 
 ## 构建
@@ -55,7 +55,7 @@ keytool -genkeypair -v \
 ```
 app/src/main/
 ├── AndroidManifest.xml
-├── java/com/example/qrcodepicclean/
+├── java/com/example/qrcodecleaner/
 │   ├── MainActivity.java    # 主界面：相册选择、扫描、删除
 │   └── QRCodeScanner.java   # ZXing 二维码识别工具类
 └── res/

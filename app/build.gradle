@@ -8,11 +8,11 @@ def appVersionCode = 3
 def appVersionName = "1.0.3"
 
 android {
-    namespace 'com.example.qrcodepicclean'
+    namespace 'com.example.qrcodecleaner'
     compileSdk 35
 
     defaultConfig {
-        applicationId "com.example.qrcodepicclean"
+        applicationId "com.example.qrcodecleaner"
         minSdk 21
         targetSdk 34
         versionCode appVersionCode
